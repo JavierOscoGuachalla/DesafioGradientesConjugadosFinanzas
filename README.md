@@ -1,6 +1,7 @@
 # Simulador de Ajustes Presupuestarios mediante Gradientes Conjugados Precondicionados
 
 **Autor: Javier Osco Guachalla**
+**Mencion: Desarrollo de Software**
 
 ## 1. Descripción del proyecto
 
