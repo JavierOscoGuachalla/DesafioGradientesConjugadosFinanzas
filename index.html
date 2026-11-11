@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GCP · Simulador de Ajustes Presupuestarios | Métodos Numéricos UMSA</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<nav>
+  <a href="#inicio">1 Inicio</a><a href="#caso">2 Caso</a><a href="#formulacion">3 Formulación</a>
+  <a href="#entrada">4 Entrada</a><a href="#escenarios">5 Escenarios</a><a href="#referencia">6 Referencia</a>
+  <a href="#gcp">7 GCP vs GC</a><a href="#errores">8 Errores</a><a href="#qa">9 QA</a><a href="#conclusiones">10 Conclusiones</a>
+</nav>
+<main>
+
+<!-- 1 INICIO -->
+<section id="inicio" class="hero">
+  <span class="tag">Universidad Mayor de San Andrés · Carrera de Informática</span>
+  <span class="tag">Métodos Numéricos</span><span class="tag">Tolerancia 10⁻⁶</span>
+  <h1>Simulador de ajustes presupuestarios con Gradientes Conjugados Precondicionado (GCP)</h1>
+  <p class="lead">Desafío académico individual · Área: Finanzas · Sistema simétrico definido positivo <b>Ax = b</b> con n = 6 categorías de gasto.</p>
+  <div class="card">
+    <div class="grid3">
+      <div><label>Estudiante</label>Javier Osco Guachalla</div>
+      <div><label>Registro / C.I.</label>1795318</div>
+      <div><label>Mención</label>Desarrollo de Sistemas</div>
+    </div>
+    <p style="margin-top:14px"><b>Síntesis.</b> Una empresa de software debe ajustar el presupuesto anual entre seis categorías de gasto cuando lo que se solicita no coincide con el monto disponible.
+    El ajuste se plantea como un problema de mínimos cuadrados penalizados cuya condición de optimalidad es el sistema lineal <b>(W + L + ρ·𝟙𝟙ᵀ)·x = W·d + ρ·B·𝟙</b>, simétrico y definido positivo.
+    Se resuelve con el método GCP de Suñagua (2020), se contrasta con el GC simple y con un método directo, y se estudian tres escenarios: <i>ideal</i>, <i>bajo estrés</i> y <i>mal condicionado</i>.
+    La página está construida como una aplicación por componentes, con validación matemática de toda entrada y un módulo de pruebas funcionales.</p>
+  </div>
+</section>
+
+<!-- 2 CASO -->
+<section id="caso">
+  <h2><span class="n">2</span> Caso de estudio</h2>
+  <p class="lead">Contexto financiero, justificación del modelo, procedencia de los datos y arquitectura del software.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Contexto</h3>
+      <p>El área financiera de una empresa de desarrollo de software recibe solicitudes de gasto <i>dᵢ</i> de seis categorías, pero dispone de un monto total <i>B</i>. Se busca la asignación <i>x</i> (en miles de Bs) que:</p>
+      <ul>
+        <li>se desvíe lo menos posible de lo solicitado, según la prioridad <i>wᵢ</i> de cada categoría;</li>
+        <li>mantenga proporcionadas las categorías interdependientes (por ejemplo, QA con Desarrollo): penalización <i>kᵢⱼ</i>;</li>
+        <li>respete el techo presupuestario de forma suave, con penalización <i>ρ</i>.</li>
+      </ul>
+      <p class="eq" style="white-space:normal">J(x) = ½·Σ wᵢ(xᵢ − dᵢ)² + ½·Σ<sub>i&lt;j</sub> kᵢⱼ(xᵢ − xⱼ)² + ½·ρ·(Σxᵢ − B)²</p>
+      <p>Anular el gradiente, ∇J = 0, produce Ax = b con A = W + L + ρ·𝟙𝟙ᵀ y b = W·d + ρ·B·𝟙 (W = diag(w), L = laplaciano ponderado de los kᵢⱼ).</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Por qué A es simétrica definida positiva</h3>
+      <ul>
+        <li>W, L y 𝟙𝟙ᵀ son simétricas ⇒ A = Aᵀ.</li>
+        <li>xᵀAx = Σ wᵢxᵢ² + Σ<sub>i&lt;j</sub> kᵢⱼ(xᵢ−xⱼ)² + ρ(Σxᵢ)² &gt; 0 para todo x ≠ 0, porque wᵢ &gt; 0, kᵢⱼ ≥ 0, ρ ≥ 0.</li>
+        <li>Es decir, J es estrictamente convexa y su único mínimo es la solución de Ax = b.</li>
+      </ul>
+      <h3>Procedencia de los datos</h3>
+      <p>Los montos, prioridades y penalizaciones son <b>valores ilustrativos calibrados</b> (montos en miles de Bs, de orden de magnitud típico de una pyme de software), no provienen de un registro contable real. Se pueden reemplazar editando A y b en el módulo 4.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Parámetros de los tres escenarios</h3>
+    <p class="mut">Las mismas 6 variables y la misma estructura A = W + L + ρ𝟙𝟙ᵀ en los tres escenarios; solo cambian los parámetros justificados en el módulo 5.</p>
+    <div class="scroll" id="datosEscenarios"></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Arquitectura de software (aporte de la mención)</h3>
+    <p>Aplicación de una sola página, sin dependencias, organizada en capas con responsabilidades separadas. Cada tarjeta de la interfaz es un <b>componente</b> registrado que se vuelve a dibujar cuando cambia el estado, con un <i>error boundary</i> propio: si un componente falla, los demás siguen funcionando.</p>
+    <div class="arch">
+      <div class="layer"><b>Vista · componentes web</b><small>Formulación, Entrada, Escenarios, Referencia, GCP vs GC, Errores, QA, Conclusiones (funciones <code>render*</code> registradas en <code>Components[]</code>).</small></div>
+      <div class="arrow">▲ lee estado y resultados · ▼ eventos de usuario (<code>input</code>, <code>click</code>)</div>
+      <div class="layer"><b>Controlador y estado</b><small><code>S</code> (A y b por escenario), <code>cfg</code> (precondicionador, tolerancia, x₀…), <code>render()</code> y manejadores de eventos.</small></div>
+      <div class="arrow">▲ resultados · ▼ datos validados</div>
+      <div class="layer"><b>Validación de entrada</b><small><code>validate(A,b)</code>: dimensiones, valores numéricos, simetría, definición positiva (autovalores, Sylvester, Cholesky). <code>validateConfig()</code>: tolerancia, N máx., ω, x₀.</small></div>
+      <div class="arrow">▲ ▼</div>
+      <div class="layer"><b>Núcleo numérico (funciones puras)</b><small>Cholesky, LU, Gauss, autovalores de Jacobi, precondicionadores (Jacobi, IC(0), SSOR), <code>pcg()</code> / GC, <code>solveScenario()</code>, <code>buildAb()</code>.</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 FORMULACION -->
+<section id="formulacion">
+  <h2><span class="n">3</span> Formulación</h2>
+  <p class="lead">Variables, sistema lineal, interpretación de coeficientes y demostración de simetría y definición positiva.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Variables (n = 6)</h3>
+      <table id="tblVars"></table>
+      <p class="mut" style="margin-top:8px">xᵢ = monto asignado a la categoría i (miles de Bs).</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Interpretación de coeficientes</h3>
+      <ul>
+        <li><b>aᵢᵢ = wᵢ + Σⱼkᵢⱼ + ρ</b>: rigidez total de la categoría i (cuánto «cuesta» desviarla de su solicitud, de sus categorías vinculadas y del techo).</li>
+        <li><b>aᵢⱼ = ρ − kᵢⱼ</b> (i≠j): acoplamiento. ρ los une por el techo común; kᵢⱼ los obliga a moverse juntos (lo reduce).</li>
+        <li><b>bᵢ = wᵢdᵢ + ρB</b>: «fuerza» que empuja la categoría hacia su solicitud y hacia el techo.</li>
+        <li>Fila i de Ax = b: equilibrio de todas las presiones sobre la categoría i.</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Sistema Ax = b del escenario activo: <span id="fmActivo" style="color:var(--txt)"></span></h3>
+  <div class="eq" id="fmSistema"></div>
+  <h3>Demostración de simetría y definición positiva (los tres escenarios)</h3>
+  <p class="mut">Simetría: max|aᵢⱼ − aⱼᵢ| = 0. Definición positiva: autovalores λᵢ &gt; 0 (método de Jacobi) y Criterio de Sylvester (menores principales líderes Δₖ &gt; 0).</p>
+  <div class="scroll" id="fmPruebas"></div>
+</section>
+
+<!-- 4 ENTRADA -->
+<section id="entrada">
+  <h2><span class="n">4</span> Entrada de datos</h2>
+  <p class="lead">Edita A y b: se valida y se recalcula todo automáticamente. Escenario activo: <b id="entActivo"></b></p>
+  <div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <div><label>Precondicionador</label>
+        <select id="cfgPre">
+          <option value="jacobi">Jacobi (diagonal)</option>
+          <option value="ic0">Cholesky incompleto IC(0)</option>
+          <option value="ssor">SSOR</option>
+          <option value="none">Ninguno (equivale a GC)</option>
+        </select></div>
+      <div><label>ω (SSOR, 0&lt;ω&lt;2)</label><input type="number" id="cfgOmega" value="1" step="0.1"></div>
+      <div><label>Tolerancia ‖rₖ‖₂/‖b‖₂ &lt;</label><input type="number" id="cfgTol" value="0.000001" step="any"></div>
+      <div><label>N máx. iteraciones</label><input type="number" id="cfgMax" value="1000" step="1"></div>
+      <div><label>Método directo de referencia</label>
+        <select id="cfgDir"><option value="cholesky">Cholesky</option><option value="lu">LU con pivoteo</option><option value="gauss">Gauss con pivoteo</option></select></div>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <div style="flex:3"><label>Vector inicial x₀ (por defecto 0)</label>
+        <div class="row" id="x0box" style="gap:6px"></div></div>
+      <div><label><input type="checkbox" id="cfgMirror" checked style="width:auto"> Espejar simetría al editar aᵢⱼ</label>
+        <span class="mut" style="font-size:12px">Desmárcalo para romper la simetría a propósito (prueba QA). Celdas en rojo: inválidas; en amarillo: par asimétrico.</span></div>
+    </div>
+    <div class="grid2">
+      <div><label>Matriz A (rigidez / acoplamiento)</label><div class="scroll"><table id="tblA"></table></div></div>
+      <div><label>Vector b (presión presupuestaria)</label><div class="scroll"><table id="tblB"></table></div></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div><button class="pri" id="btnRun">▶ Recalcular (calculamiento automatico al cambiar valores)</button> <button id="btnReset">↺ Restablecer matriz</button></div>
+    </div>
+    <div id="entMsg"></div>
+  </div>
+</section>
+
+<!-- 5 ESCENARIOS -->
+<section id="escenarios">
+  <h2><span class="n">5</span> Tres escenarios</h2>
+  <p class="lead">Carga rápida y comparación. Las tres corridas se ejecutan siempre con la misma configuración de entrada.</p>
+  <div class="row" style="margin-bottom:12px">
+    <button id="bt_ideal">① Ideal</button><button id="bt_estres">② Bajo estrés</button><button id="bt_mal">③ Mal condicionado</button>
+    <button class="pri" id="btAll">▶ ver tabla completa comparativa</button>
+  </div>
+  <div class="card" id="escJust"></div>
+  <h3>Tabla comparativa obligatoria</h3>
+  <div class="scroll" id="tblComp"></div>
+</section>
+
+<!-- 6 REFERENCIA -->
+<section id="referencia">
+  <h2><span class="n">6</span> Solución de referencia (método directo)</h2>
+  <p class="lead">Escenario activo. Esta solución se considera la «solución numérica de referencia» (formalmente, solución exacta salvo redondeo de máquina).</p>
+  <div id="refBox"></div>
+</section>
+
+<!-- 7 GCP vs GC -->
+<section id="gcp">
+  <h2><span class="n">7</span> GCP vs GC</h2>
+  <p class="lead">Algoritmo de Suñagua (2020): r₀ = b − Ax₀; resolver Mzₖ = rₖ; pₖ₊₁ = zₖ₊₁ + βₖpₖ; αₖ = rₖᵀzₖ / pₖᵀApₖ; xₖ₊₁ = xₖ + αₖpₖ. GC simple = mismo código con M = I.</p>
+  <div id="gcpBox"></div>
+  <h3>Convergencia (residuo relativo, escala logarítmica)</h3>
+  <canvas id="cvConv"></canvas>
+  <h3>Comparación de precondicionadores (escenario activo)</h3>
+  <div class="scroll" id="preCmp"></div>
+</section>
+
+<!-- 8 ERRORES -->
+<section id="errores">
+  <h2><span class="n">8</span> Análisis de errores</h2>
+  <p class="lead">Errores por variable: Eₐ = |x_ref − x_GCP|, Eᵣ = Eₐ/|x_ref|, Eₚ = Eᵣ·100 %.</p>
+  <div class="scroll" id="errBox"></div>
+  <div id="errExtra"></div>
+  <h3>Lectura presupuestaria del resultado</h3>
+  <div class="grid2">
+    <div class="card"><b>Asignación por categoría</b><div class="scroll" id="edaBox"></div></div>
+    <div class="card"><b>Resumen del plan presupuestario</b><div id="portBox"></div></div>
+  </div>
+  <div class="card"><b>Sensibilidad: efecto en la asignación (miles de Bs) de aumentar 10 % la presión bᵢ de una categoría</b>
+    <div class="scroll" id="sensBox"></div></div>
+</section>
+
+<!-- 9 QA -->
+<section id="qa">
+  <h2><span class="n">9</span> Módulo de Pruebas (QA)</h2>
+  <p class="lead">Pruebas funcionales y matemáticas ejecutadas en tu navegador contra el código real de la página (incluyendo simulación de eventos sobre la interfaz).</p>
+  <div class="row" style="margin-bottom:10px"><button class="pri" id="btnQA">▶ Ejecucion en tiempo real de las pruebas</button><span id="qaSum"></span></div>
+  <div class="scroll" id="qaBox"></div>
+  <details class="card"><summary>Guía de prueba manual (edición dinámica y matriz no válida)</summary>
+    <ol>
+      <li>En el módulo 4 cambia cualquier aᵢⱼ: con «Espejar simetría» activo, aⱼᵢ se actualiza y todo se recalcula al instante.</li>
+      <li>Desmarca «Espejar simetría» y cambia solo a₁₂: el par se marca en amarillo, aparece el aviso de matriz no simétrica y los módulos 6–8 indican «no calculable» sin colapsar.</li>
+      <li>Pon a₁₂ = a₂₁ = 50 (con espejo): la matriz deja de ser definida positiva y se notifica.</li>
+      <li>Escribe una tolerancia negativa, ω = 3 o N máx. = 0: se avisa y se usa un valor por defecto.</li>
+      <li>Pulsa «Restablecer escenario» para volver a los datos originales.</li>
+    </ol>
+  </details>
+</section>
+
+<!-- 10 CONCLUSIONES -->
+<section id="conclusiones">
+  <h2><span class="n">10</span> Conclusiones y Referencias</h2>
+  <div class="card" id="concBox"></div>
+  <h3>Referencias</h3>
+  <ul>
+    <li>Suñagua S., P. (2020). <i>Método de Gradientes Conjugados Precondicionado</i>. Revista Boliviana de Matemática – UMSA, 04, 2–7.</li>
+    <li>Golub, G. H., &amp; Van Loan, C. F. (2013). <i>Matrix Computations</i> (4th ed.). Johns Hopkins University Press.</li>
+    <li>Saad, Y. (2003). <i>Iterative Methods for Sparse Linear Systems</i> (2nd ed.). SIAM.</li>
+    <li>Datos: valores ilustrativos calibrados (ver módulo 2); sustituibles por datos contables reales de la organización.</li>
+  </ul>
+</section>
+</main>
+<footer>Desafío Académico de Métodos Numéricos · UMSA · Carrera de Informática · Mención Desarrollo de Sistemas · Código fuente: <i>https://github.com/JavierOscoGuachalla/DesafioGradientesConjugadosFinanzas</i></footer>
+
+<script src="script.js"></script>
+</body>
+</html>
